@@ -11,38 +11,51 @@ const ProductsPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const { addToCart } = useCart();
 
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  // Безопасно задаване на бекенд URL
+  const BACKEND_URL =
+    process.env.REACT_APP_BACKEND_URL?.trim() ||
+    'https://impulse-fishing-api.onrender.com';
   const API = `${BACKEND_URL}/api`;
+
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadCategories();
     loadProducts();
+    // eslint-disable-next-line
   }, []);
 
   useEffect(() => {
-    loadProducts();
+    const delaySearch = setTimeout(() => {
+      loadProducts();
+    }, 400); // малък debounce за търсенето
+    return () => clearTimeout(delaySearch);
+    // eslint-disable-next-line
   }, [selectedCategory, searchTerm]);
 
   const loadCategories = async () => {
     try {
       const response = await axios.get(`${API}/categories`);
-      setCategories(response.data);
+      setCategories(response.data || []);
     } catch (error) {
       console.error('Error loading categories:', error);
+      setError('⚠️ Грешка при зареждане на категориите.');
     }
   };
 
   const loadProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const params = new URLSearchParams();
       if (selectedCategory) params.append('category', selectedCategory);
       if (searchTerm) params.append('search', searchTerm);
-      
+
       const response = await axios.get(`${API}/products?${params.toString()}`);
-      setProducts(response.data);
+      setProducts(response.data || []);
     } catch (error) {
       console.error('Error loading products:', error);
+      setError('⚠️ Грешка при зареждане на продуктите.');
     } finally {
       setLoading(false);
     }
@@ -50,20 +63,14 @@ const ProductsPage = () => {
 
   const handleAddToCart = (product) => {
     addToCart(product, 1);
-    alert('Продуктът е добавен в количката!');
+    alert('✅ Продуктът е добавен в количката!');
   };
 
-  const calculateDiscountedPrice = (price, discount) => {
-    return (price * (1 - discount / 100)).toFixed(2);
-  };
+  const calculateDiscountedPrice = (price, discount) =>
+    (price * (1 - discount / 100)).toFixed(2);
 
-  const openModal = (product) => {
-    setSelectedProduct(product);
-  };
-
-  const closeModal = () => {
-    setSelectedProduct(null);
-  };
+  const openModal = (product) => setSelectedProduct(product);
+  const closeModal = () => setSelectedProduct(null);
 
   return (
     <div className="container">
@@ -71,14 +78,16 @@ const ProductsPage = () => {
         🎯 Нашите Продукти
       </h1>
 
-      {/* Filters */}
-      <div style={{
-        display: 'flex',
-        gap: '15px',
-        marginBottom: '30px',
-        flexWrap: 'wrap',
-        justifyContent: 'center'
-      }}>
+      {/* Филтри */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '15px',
+          marginBottom: '30px',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}
+      >
         <input
           type="text"
           placeholder="🔍 Търсене..."
@@ -90,7 +99,7 @@ const ProductsPage = () => {
             border: '2px solid #00b2ff',
             backgroundColor: '#111',
             color: '#fff',
-            minWidth: '250px'
+            minWidth: '250px',
           }}
         />
         <select
@@ -102,12 +111,14 @@ const ProductsPage = () => {
             border: '2px solid #00b2ff',
             backgroundColor: '#111',
             color: '#fff',
-            minWidth: '200px'
+            minWidth: '200px',
           }}
         >
           <option value="">Всички категории</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
         {(selectedCategory || searchTerm) && (
@@ -123,9 +134,11 @@ const ProductsPage = () => {
         )}
       </div>
 
-      {/* Products Grid */}
+      {/* Продукти */}
       {loading ? (
-        <div className="loading">Зареждане...</div>
+        <div className="loading">⏳ Зареждане...</div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', color: 'red' }}>{error}</div>
       ) : products.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '50px', color: '#888' }}>
           😟 Няма намерени продукти
@@ -137,18 +150,16 @@ const ProductsPage = () => {
               {product.discount_percentage > 0 && (
                 <div className="discount-badge">-{product.discount_percentage}%</div>
               )}
-              <img 
-                src={product.image_url} 
-                alt={product.name} 
+              <img
+                src={product.image_url}
+                alt={product.name}
                 onClick={() => openModal(product)}
               />
               <div className="product-info">
                 <div className="product-name">{product.name}</div>
                 <div className="product-price">
                   {product.discount_percentage > 0 && (
-                    <span className="product-old-price">
-                      {product.price.toFixed(2)}лв.
-                    </span>
+                    <span className="product-old-price">{product.price.toFixed(2)}лв.</span>
                   )}
                   {calculateDiscountedPrice(product.price, product.discount_percentage)}лв.
                 </div>
@@ -166,34 +177,56 @@ const ProductsPage = () => {
         </div>
       )}
 
-      {/* Product Modal */}
+      {/* Модал */}
       {selectedProduct && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal}>&times;</button>
-            <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>{selectedProduct.name}</h2>
-            <img 
-              src={selectedProduct.image_url} 
+            <button className="modal-close" onClick={closeModal}>
+              &times;
+            </button>
+            <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>
+              {selectedProduct.name}
+            </h2>
+            <img
+              src={selectedProduct.image_url}
               alt={selectedProduct.name}
-              style={{ width: '100%', maxWidth: '400px', display: 'block', margin: '0 auto 20px' }}
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                display: 'block',
+                margin: '0 auto 20px',
+              }}
             />
             <p style={{ color: '#ccc', marginBottom: '15px', lineHeight: '1.6' }}>
               {selectedProduct.description}
             </p>
             <div style={{ marginBottom: '15px' }}>
-              <strong style={{ color: '#ff9900' }}>Категория:</strong> {selectedProduct.category}
+              <strong style={{ color: '#ff9900' }}>Категория:</strong>{' '}
+              {selectedProduct.category}
             </div>
             <div style={{ marginBottom: '15px' }}>
-              <strong style={{ color: '#ff9900' }}>Наличност:</strong> {selectedProduct.stock} бр.
+              <strong style={{ color: '#ff9900' }}>Наличност:</strong>{' '}
+              {selectedProduct.stock} бр.
             </div>
-            <div className="product-price" style={{ fontSize: '24px', marginBottom: '20px' }}>
+            <div
+              className="product-price"
+              style={{ fontSize: '24px', marginBottom: '20px' }}
+            >
               {selectedProduct.discount_percentage > 0 && (
                 <span className="product-old-price">
                   {selectedProduct.price.toFixed(2)}лв.
                 </span>
               )}
-              {calculateDiscountedPrice(selectedProduct.price, selectedProduct.discount_percentage)}лв. / 
-              {calculateDiscountedPrice(selectedProduct.price_eur, selectedProduct.discount_percentage)}€
+              {calculateDiscountedPrice(
+                selectedProduct.price,
+                selectedProduct.discount_percentage
+              )}
+              лв. /{' '}
+              {calculateDiscountedPrice(
+                selectedProduct.price_eur,
+                selectedProduct.discount_percentage
+              )}
+              €
             </div>
             <button
               onClick={() => {
@@ -204,7 +237,9 @@ const ProductsPage = () => {
               style={{ width: '100%', padding: '15px' }}
               disabled={selectedProduct.stock === 0}
             >
-              {selectedProduct.stock === 0 ? 'Няма наличност' : '🛒 Добави в количката'}
+              {selectedProduct.stock === 0
+                ? 'Няма наличност'
+                : '🛒 Добави в количката'}
             </button>
           </div>
         </div>

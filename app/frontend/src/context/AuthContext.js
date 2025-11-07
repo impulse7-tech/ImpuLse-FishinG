@@ -1,4 +1,4 @@
-"import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -16,7 +16,11 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  // Използваме REACT_APP_BACKEND_URL, който сте дефинирали в Render
+  const BACKEND_URL = typeof process.env.REACT_APP_BACKEND_URL !== 'undefined'
+    ? process.env.REACT_APP_BACKEND_URL
+    : 'http://localhost:8000';
+    
   const API = `${BACKEND_URL}/api`;
 
   useEffect(() => {
@@ -75,4 +79,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-"

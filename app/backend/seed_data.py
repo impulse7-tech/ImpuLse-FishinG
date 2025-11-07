@@ -1,4 +1,3 @@
-"\"\"\"
 Seed data script to populate initial products and admin user
 Run: python seed_data.py
 \"\"\"
@@ -158,4 +157,3 @@ async def seed_database():
 
 if __name__ == \"__main__\":
     asyncio.run(seed_database())
-"

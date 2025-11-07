@@ -16,30 +16,38 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  // Използваме REACT_APP_BACKEND_URL, който сте дефинирали в Render
-  const BACKEND_URL = typeof process.env.REACT_APP_BACKEND_URL !== 'undefined'
-    ? process.env.REACT_APP_BACKEND_URL
-    : 'http://localhost:8000';
-    
+  // Определяме бекенд URL-а автоматично
+  const BACKEND_URL =
+    process.env.REACT_APP_BACKEND_URL ||
+    (process.env.NODE_ENV === 'production'
+      ? 'https://impulse-fishing-api.onrender.com'
+      : 'http://localhost:8000');
+
   const API = `${BACKEND_URL}/api`;
 
+  // Проверка на токена при зареждане
   useEffect(() => {
-    if (token) {
-      // Verify token and get user
-      axios.get(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(res => {
-          setUser(res.data);
-        })
-        .catch(() => {
-          localStorage.removeItem('token');
-          setToken(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    const verifyUser = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await axios.get(`${API}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUser(res.data);
+      } catch (error) {
+        console.error('Auth check failed:', error.response?.data || error.message);
+        localStorage.removeItem('token');
+        setToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyUser();
   }, [token, API]);
 
   const login = async (email, password) => {
@@ -74,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     loading,
     isAuthenticated: !!token,
-    isAdmin: user?.role === 'admin'
+    isAdmin: user?.role === 'admin',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

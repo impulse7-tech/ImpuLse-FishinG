@@ -8,87 +8,76 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from .models import ( # Корекция: Относителен импорт
+# ✅ Оправени импорти – махнати точките
+from models import (
     User, UserCreate, UserLogin, UserInDB, Token,
     Product, ProductCreate,
     Order, OrderCreate, OrderItem,
     ChatMessage, ChatMessageCreate
 )
-from .auth import ( # Корекция: Относителен импорт
+from auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_user, get_current_admin
 )
 
-
+# ==========================================================
 # Зареждане на .env (за локално развитие)
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # ==========================================================
 # MongoDB connection
-# Използваме os.environ.get с празен стринг по подразбиране и .strip()
-# Това предотвратява грешка, ако променливата липсва или има whitespace.
 mongo_url = os.environ.get('MONGO_URL', '').strip()
 db_name = os.environ.get('DB_NAME', 'impulse_fishing').strip()
 
 if not mongo_url.startswith("mongodb://") and not mongo_url.startswith("mongodb+srv://"):
-    # Добавяме ясна грешка, ако MONGO_URL липсва или е невалиден
-    # (Това ще се случи, ако не е зададен в Render Dashboard)
     raise ValueError(
-        "MONGO_URL не е зададен правилно в Render Environment Variables или е празен! "
+        "❌ MONGO_URL не е зададен правилно в Render Environment Variables! "
         "Трябва да започва с 'mongodb://' или 'mongodb+srv://'."
     )
-    
+
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 # ==========================================================
 
-
-# Create the main app without a prefix
+# Create the main app
 app = FastAPI(title='ImpuLse FishinG API')
 
-# Create a router with the /api prefix
+# Create a router with /api prefix
 api_router = APIRouter(prefix="/api")
 
-
-# ============ HELPER FUNCTIONS ============
+# ==========================================================
+# Helper functions
 def serialize_datetime(obj):
-    """Convert datetime to ISO string for MongoDB storage"""
     if isinstance(obj, dict):
         return {k: v.isoformat() if isinstance(v, datetime) else v for k, v in obj.items()}
     return obj
 
 def deserialize_datetime(obj):
-    """Convert ISO string back to datetime"""
     if isinstance(obj, dict):
         for key in ['created_at', 'timestamp']:
             if key in obj and isinstance(obj[key], str):
                 try:
-                    # Опитваме се да парснем ISO формат с или без часова зона
                     obj[key] = datetime.fromisoformat(obj[key].replace('Z', '+00:00'))
                 except ValueError:
-                    # Ако парсването не успее, оставяме го като стринг или прилагаме друга логика
                     pass
     return obj
 
-
-# ============ AUTH ROUTES ============
+# ==========================================================
+# AUTH ROUTES
 @api_router.post("/auth/register", response_model=Token)
 async def register(user_data: UserCreate):
-    # Check if user exists
     existing_user = await db.users.find_one({"email": user_data.email}, {"_id": 0})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Create user
+
     user_dict = user_data.model_dump(exclude={"password"})
     user = User(**user_dict)
     user_in_db = UserInDB(**user.model_dump(), password_hash=get_password_hash(user_data.password))
-    
+
     doc = serialize_datetime(user_in_db.model_dump())
     await db.users.insert_one(doc)
-    
-    # Create token
+
     access_token = create_access_token(data={"sub": user.id, "email": user.email, "role": user.role})
     return Token(access_token=access_token, user=user)
 
@@ -98,11 +87,11 @@ async def login(credentials: UserLogin):
     user_doc = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user_doc:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
+
     user_in_db = UserInDB(**deserialize_datetime(user_doc))
     if not verify_password(credentials.password, user_in_db.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
+
     user = User(**user_in_db.model_dump(exclude={"password_hash"}))
     access_token = create_access_token(data={"sub": user.id, "email": user.email, "role": user.role})
     return Token(access_token=access_token, user=user)
@@ -115,14 +104,10 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="User not found")
     return User(**deserialize_datetime(user_doc))
 
-
-# ============ PRODUCT ROUTES ============
+# ==========================================================
+# PRODUCTS
 @api_router.get("/products", response_model=List[Product])
-async def get_products(
-    category: Optional[str] = None,
-    search: Optional[str] = None,
-    discount_only: bool = False
-):
+async def get_products(category: Optional[str] = None, search: Optional[str] = None, discount_only: bool = False):
     query = {}
     if category:
         query["category"] = category
@@ -130,7 +115,7 @@ async def get_products(
         query["name"] = {"$regex": search, "$options": "i"}
     if discount_only:
         query["discount_percentage"] = {"$gt": 0}
-    
+
     products = await db.products.find(query, {"_id": 0}).to_list(1000)
     return [Product(**deserialize_datetime(p)) for p in products]
 
@@ -152,15 +137,11 @@ async def create_product(product_data: ProductCreate, current_user: dict = Depen
 
 
 @api_router.put("/products/{product_id}", response_model=Product)
-async def update_product(
-    product_id: str,
-    product_data: ProductCreate,
-    current_user: dict = Depends(get_current_admin)
-):
+async def update_product(product_id: str, product_data: ProductCreate, current_user: dict = Depends(get_current_admin)):
     existing = await db.products.find_one({"id": product_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     updated = Product(**{**existing, **product_data.model_dump()})
     doc = serialize_datetime(updated.model_dump())
     await db.products.replace_one({"id": product_id}, doc)
@@ -174,19 +155,12 @@ async def delete_product(product_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=404, detail="Product not found")
     return {"message": "Product deleted"}
 
-
-# ============ ORDER ROUTES ============
+# ==========================================================
+# ORDERS
 @api_router.post("/orders", response_model=Order)
 async def create_order(order_data: OrderCreate, current_user: dict = Depends(get_current_user)):
-    # Calculate total
     total = sum(item.product_price * item.quantity for item in order_data.items)
-    
-    order = Order(
-        user_id=current_user["sub"],
-        **order_data.model_dump(),
-        total=total
-    )
-    
+    order = Order(user_id=current_user["sub"], **order_data.model_dump(), total=total)
     doc = serialize_datetime(order.model_dump())
     await db.orders.insert_one(doc)
     return order
@@ -194,15 +168,8 @@ async def create_order(order_data: OrderCreate, current_user: dict = Depends(get
 
 @api_router.post("/orders/guest", response_model=Order)
 async def create_guest_order(order_data: OrderCreate):
-    """Create order without authentication"""
     total = sum(item.product_price * item.quantity for item in order_data.items)
-    
-    order = Order(
-        user_id=None,
-        **order_data.model_dump(),
-        total=total
-    )
-    
+    order = Order(user_id=None, **order_data.model_dump(), total=total)
     doc = serialize_datetime(order.model_dump())
     await db.orders.insert_one(doc)
     return order
@@ -211,12 +178,9 @@ async def create_guest_order(order_data: OrderCreate):
 @api_router.get("/orders", response_model=List[Order])
 async def get_orders(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "admin":
-        # Admin sees all orders
         orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     else:
-        # User sees only their orders
         orders = await db.orders.find({"user_id": current_user["sub"]}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    
     return [Order(**deserialize_datetime(o)) for o in orders]
 
 
@@ -225,34 +189,25 @@ async def get_order(order_id: str, current_user: dict = Depends(get_current_user
     order = await db.orders.find_one({"id": order_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    
-    # Check permissions
+
     if current_user["role"] != "admin" and order["user_id"] != current_user["sub"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
     return Order(**deserialize_datetime(order))
 
 
 @api_router.put("/orders/{order_id}/status")
-async def update_order_status(
-    order_id: str,
-    status: str,
-    current_user: dict = Depends(get_current_admin)
-):
-    result = await db.orders.update_one(
-        {"id": order_id},
-        {"$set": {"status": status}}
-    )
+async def update_order_status(order_id: str, status: str, current_user: dict = Depends(get_current_admin)):
+    result = await db.orders.update_one({"id": order_id}, {"$set": {"status": status}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Order not found")
     return {"message": "Status updated"}
 
-
-# ============ CHAT ROUTES ============
+# ==========================================================
+# CHAT
 @api_router.get("/chat/messages", response_model=List[ChatMessage])
 async def get_chat_messages(limit: int = 100):
     messages = await db.chat_messages.find({}, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
-    messages.reverse()  # Show oldest first
+    messages.reverse()
     return [ChatMessage(**deserialize_datetime(m)) for m in messages]
 
 
@@ -263,27 +218,25 @@ async def send_chat_message(message_data: ChatMessageCreate):
     await db.chat_messages.insert_one(doc)
     return message
 
-
-# ============ CATEGORIES ROUTE ============
+# ==========================================================
+# CATEGORIES
 @api_router.get("/categories")
 async def get_categories():
-    """Get all unique categories"""
     categories = await db.products.distinct("category")
     return categories
 
-
-# ============ ROOT ROUTE ============
+# ==========================================================
+# ROOT
 @api_router.get("/")
 async def root():
     return {"message": "ImpuLse FishinG API", "status": "running"}
 
-
-# Include the router in the main app
+# ==========================================================
+# Include routes
 app.include_router(api_router)
 
 # ==========================================================
-# CORS Middleware
-# Използваме os.environ.get('CORS_ORIGINS', '*') за да поддържаме дефолтна стойност
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -291,13 +244,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# ==========================================================
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# ==========================================================
+# Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")

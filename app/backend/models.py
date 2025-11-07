@@ -15,9 +15,9 @@ class UserCreate(UserBase):
     password: str
 
 class User(UserBase):
-    model_config = ConfigDict(extra=\"ignore\")
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    role: str = \"user\"  # user or admin
+    role: str = "user"  # user or admin
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserInDB(User):
@@ -43,7 +43,7 @@ class ProductCreate(ProductBase):
     pass
 
 class Product(ProductBase):
-    model_config = ConfigDict(extra=\"ignore\")
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -65,7 +65,7 @@ class OrderCreate(BaseModel):
     notes: Optional[str] = None
 
 class Order(BaseModel):
-    model_config = ConfigDict(extra=\"ignore\")
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None  # Optional for guest orders
     items: List[OrderItem]
@@ -76,14 +76,14 @@ class Order(BaseModel):
     shipping_city: str
     shipping_postal_code: Optional[str] = None
     notes: Optional[str] = None
-    status: str = \"pending\"  # pending, confirmed, shipped, delivered, cancelled
-    payment_method: str = \"cash_on_delivery\"
+    status: str = "pending"  # pending, confirmed, shipped, delivered, cancelled
+    payment_method: str = "cash_on_delivery"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # Chat Models
 class ChatMessage(BaseModel):
-    model_config = ConfigDict(extra=\"ignore\")
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nickname: str
     message: str
@@ -97,5 +97,5 @@ class ChatMessageCreate(BaseModel):
 # Auth Token
 class Token(BaseModel):
     access_token: str
-    token_type: str = \"bearer\"
+    token_type: str = "bearer"
     user: User

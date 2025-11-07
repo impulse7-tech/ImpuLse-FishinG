@@ -20,17 +20,32 @@ from .auth import ( # Корекция: Относителен импорт
 )
 
 
+# Зареждане на .env (за локално развитие)
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# ==========================================================
 # MongoDB connection
-# Уверете се, че MONGO_URL е URL-кодиран в Render Environment Variables
-mongo_url = os.environ['MONGO_URL']
+# Използваме os.environ.get с празен стринг по подразбиране и .strip()
+# Това предотвратява грешка, ако променливата липсва или има whitespace.
+mongo_url = os.environ.get('MONGO_URL', '').strip()
+db_name = os.environ.get('DB_NAME', 'impulse_fishing').strip()
+
+if not mongo_url.startswith("mongodb://") and not mongo_url.startswith("mongodb+srv://"):
+    # Добавяме ясна грешка, ако MONGO_URL липсва или е невалиден
+    # (Това ще се случи, ако не е зададен в Render Dashboard)
+    raise ValueError(
+        "MONGO_URL не е зададен правилно в Render Environment Variables или е празен! "
+        "Трябва да започва с 'mongodb://' или 'mongodb+srv://'."
+    )
+    
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[db_name]
+# ==========================================================
+
 
 # Create the main app without a prefix
-app = FastAPI(title='ImpuLse FishinG API') # Корекция: Използвани са единични кавички
+app = FastAPI(title='ImpuLse FishinG API')
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -48,7 +63,12 @@ def deserialize_datetime(obj):
     if isinstance(obj, dict):
         for key in ['created_at', 'timestamp']:
             if key in obj and isinstance(obj[key], str):
-                obj[key] = datetime.fromisoformat(obj[key])
+                try:
+                    # Опитваме се да парснем ISO формат с или без часова зона
+                    obj[key] = datetime.fromisoformat(obj[key].replace('Z', '+00:00'))
+                except ValueError:
+                    # Ако парсването не успее, оставяме го като стринг или прилагаме друга логика
+                    pass
     return obj
 
 
@@ -261,6 +281,9 @@ async def root():
 # Include the router in the main app
 app.include_router(api_router)
 
+# ==========================================================
+# CORS Middleware
+# Използваме os.environ.get('CORS_ORIGINS', '*') за да поддържаме дефолтна стойност
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -268,6 +291,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# ==========================================================
 
 # Configure logging
 logging.basicConfig(
@@ -278,5 +302,4 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-
     client.close()

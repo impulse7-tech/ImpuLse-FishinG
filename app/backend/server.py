@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from .models import ( # <--- КОРЕКЦИЯ: Добавих точка (.)
+from .models import ( # Корекция: Относителен импорт
     User, UserCreate, UserLogin, UserInDB, Token,
     Product, ProductCreate,
     Order, OrderCreate, OrderItem,
     ChatMessage, ChatMessageCreate
 )
-from .auth import ( # <--- КОРЕКЦИЯ: Добавих точка (.)
+from .auth import ( # Корекция: Относителен импорт
     get_password_hash, verify_password, create_access_token,
     get_current_user, get_current_admin
 )
@@ -24,12 +24,13 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
+# Уверете се, че MONGO_URL е URL-кодиран в Render Environment Variables
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
-app = FastAPI(title='ImpuLse FishinG API')
+app = FastAPI(title='ImpuLse FishinG API') # Корекция: Използвани са единични кавички
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")

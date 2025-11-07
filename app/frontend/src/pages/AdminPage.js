@@ -1,8 +1,47 @@
-Now let's create the Admin page:
-Action: file_editor create /app/frontend/src/pages/AdminPage.js --file-text "import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+
+// ===================================
+// Custom Modal Components (for alerts/confirms)
+// ===================================
+
+// Component for showing simple alert messages
+const MessageModal = ({ message, onClose }) => (
+  <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
+      <button className="modal-close" onClick={onClose}>&times;</button>
+      <p style={{ margin: '20px 0', fontSize: '18px', fontWeight: 'bold' }}>
+        {message}
+      </p>
+      <button className="btn btn-primary" onClick={onClose} style={{ width: '100%' }}>
+        Разбрано
+      </button>
+    </div>
+  </div>
+);
+
+// Component for showing confirmation dialogs
+const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+  <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
+      <button className="modal-close" onClick={onCancel}>&times;</button>
+      <p style={{ margin: '20px 0', fontSize: '18px', color: '#ff9900' }}>
+        {message}
+      </p>
+      <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+        <button className="btn btn-danger" onClick={onConfirm} style={{ flex: 1 }}>
+          Да, Изтрий
+        </button>
+        <button className="btn btn-secondary" onClick={onCancel} style={{ flex: 1 }}>
+          Отказ
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('products');
@@ -11,24 +50,43 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductForm, setShowProductForm] = useState(false);
-  const { isAdmin, user } = useAuth();
+  
+  // State for Modals
+  const [confirmDelete, setConfirmDelete] = useState(null); // holds product ID
+  const [messageModal, setMessageModal] = useState(null); // holds string message
+
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  // Важно: Взимаме BACKEND_URL от AuthContext.js
+  const BACKEND_URL = typeof process.env.REACT_APP_BACKEND_URL !== 'undefined'
+    ? process.env.REACT_APP_BACKEND_URL
+    : 'http://localhost:8000';
   const API = `${BACKEND_URL}/api`;
 
   useEffect(() => {
-    if (!isAdmin) {
+    // Редирект, ако не е администратор
+    if (isAdmin === false) { 
       navigate('/');
       return;
     }
-    loadData();
-  }, [isAdmin, activeTab]);
+    // Зарежда данните само ако е администратор и активната таба се промени
+    if (isAdmin) {
+      loadData();
+    }
+  }, [isAdmin, activeTab, navigate]);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
+      // Ако няма токен, не можем да продължим
+      if (!token) {
+        setMessageModal("Грешка: Не сте логнати като администратор.");
+        setLoading(false);
+        return;
+      }
+
       const headers = { Authorization: `Bearer ${token}` };
 
       if (activeTab === 'products') {
@@ -40,24 +98,30 @@ const AdminPage = () => {
       }
     } catch (error) {
       console.error('Error loading data:', error);
+      setMessageModal('Грешка при зареждане на данни от бекенда.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (!window.confirm('Сигурни ли сте, че искате да изтриете този продукт?')) return;
+    setConfirmDelete(productId);
+  };
+  
+  const confirmDeleteAction = async () => {
+    const productId = confirmDelete;
+    setConfirmDelete(null); // Close confirm modal
 
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${API}/products/${productId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('✅ Продуктът е изтрит');
+      setMessageModal('✅ Продуктът е изтрит');
       loadData();
     } catch (error) {
       console.error('Error deleting product:', error);
-      alert('❌ Грешка при изтриване');
+      setMessageModal('❌ Грешка при изтриване');
     }
   };
 
@@ -69,11 +133,11 @@ const AdminPage = () => {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      alert('✅ Статусът е променен');
+      setMessageModal('✅ Статусът е променен');
       loadData();
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('❌ Грешка при промяна на статус');
+      setMessageModal('❌ Грешка при промяна на статус');
     }
   };
 
@@ -90,6 +154,20 @@ const AdminPage = () => {
         discount_percentage: 0
       }
     );
+    
+    // Хендлър за промяна на всички полета
+    const handleChange = (e) => {
+        const { name, value, type } = e.target;
+        let finalValue = value;
+
+        if (type === 'number') {
+            finalValue = name === 'stock' 
+                ? parseInt(value) || 0 
+                : parseFloat(value) || 0;
+        }
+
+        setFormData({ ...formData, [name]: finalValue });
+    };
 
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -99,105 +177,113 @@ const AdminPage = () => {
 
         if (product) {
           await axios.put(`${API}/products/${product.id}`, formData, { headers });
-          alert('✅ Продуктът е обновен');
+          setMessageModal('✅ Продуктът е обновен');
         } else {
           await axios.post(`${API}/products`, formData, { headers });
-          alert('✅ Продуктът е създаден');
+          setMessageModal('✅ Продуктът е създаден');
         }
         onClose();
         loadData();
       } catch (error) {
         console.error('Error saving product:', error);
-        alert('❌ Грешка при запазване');
+        setMessageModal('❌ Грешка при запазване');
       }
     };
 
     return (
-      <div className=\"modal-overlay\" onClick={onClose}>
-        <div className=\"modal-content\" onClick={(e) => e.stopPropagation()}>
-          <button className=\"modal-close\" onClick={onClose}>&times;</button>
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <button className="modal-close" onClick={onClose}>&times;</button>
           <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>
             {product ? 'Редактиране на продукт' : 'Нов продукт'}
           </h2>
           <form onSubmit={handleSubmit}>
-            <div className=\"form-group\">
+            <div className="form-group">
               <label>Име</label>
               <input
-                type=\"text\"
+                type="text"
+                name="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={handleChange}
                 required
               />
             </div>
-            <div className=\"form-group\">
+            <div className="form-group">
               <label>Описание</label>
               <textarea
+                name="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows=\"3\"
+                onChange={handleChange}
+                rows="3"
               />
             </div>
-            <div className=\"grid grid-2\">
-              <div className=\"form-group\">
+            <div className="grid grid-2">
+              <div className="form-group">
                 <label>Цена (лв)</label>
                 <input
-                  type=\"number\"
-                  step=\"0.01\"
+                  type="number"
+                  name="price"
+                  step="0.01"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                  onChange={handleChange}
                   required
                 />
               </div>
-              <div className=\"form-group\">
+              <div className="form-group">
                 <label>Цена (€)</label>
                 <input
-                  type=\"number\"
-                  step=\"0.01\"
+                  type="number"
+                  name="price_eur"
+                  step="0.01"
                   value={formData.price_eur}
-                  onChange={(e) => setFormData({ ...formData, price_eur: parseFloat(e.target.value) })}
+                  onChange={handleChange}
                   required
                 />
               </div>
             </div>
-            <div className=\"form-group\">
+            <div className="form-group">
               <label>Категория</label>
               <input
-                type=\"text\"
+                type="text"
+                name="category"
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleChange}
                 required
               />
             </div>
-            <div className=\"form-group\">
+            <div className="form-group">
               <label>URL на изображение</label>
               <input
-                type=\"url\"
+                type="url"
+                name="image_url"
                 value={formData.image_url}
-                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                onChange={handleChange}
               />
             </div>
-            <div className=\"grid grid-2\">
-              <div className=\"form-group\">
+            <div className="grid grid-2">
+              <div className="form-group">
                 <label>Наличност</label>
                 <input
-                  type=\"number\"
+                  type="number"
+                  name="stock"
                   value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
+                  onChange={handleChange}
                   required
                 />
               </div>
-              <div className=\"form-group\">
+              <div className="form-group">
                 <label>Отстъпка (%)</label>
                 <input
-                  type=\"number\"
-                  min=\"0\"
-                  max=\"100\"
+                  type="number"
+                  name="discount_percentage"
+                  min="0"
+                  max="100"
                   value={formData.discount_percentage}
-                  onChange={(e) => setFormData({ ...formData, discount_percentage: parseInt(e.target.value) })}
+                  onChange={handleChange}
                 />
               </div>
             </div>
-            <button type=\"submit\" className=\"btn btn-primary\" style={{ width: '100%' }}>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
               💾 Запази
             </button>
           </form>
@@ -229,7 +315,7 @@ const AdminPage = () => {
   };
 
   return (
-    <div className=\"container\">
+    <div className="container">
       <h1 style={{ color: '#00b2ff', marginBottom: '30px', fontSize: '36px' }}>
         🔧 Администраторски панел
       </h1>
@@ -253,7 +339,7 @@ const AdminPage = () => {
       </div>
 
       {loading ? (
-        <div className=\"loading\">Зареждане...</div>
+        <div className="loading">Зареждане...</div>
       ) : activeTab === 'products' ? (
         <>
           <button
@@ -261,22 +347,22 @@ const AdminPage = () => {
               setEditingProduct(null);
               setShowProductForm(true);
             }}
-            className=\"btn btn-primary\"
+            className="btn btn-primary"
             style={{ marginBottom: '20px' }}
           >
             ➕ Добави нов продукт
           </button>
 
-          <div className=\"grid grid-3\">
+          <div className="grid grid-3">
             {products.map((product) => (
-              <div key={product.id} className=\"product-card\" style={{ position: 'relative' }}>
+              <div key={product.id} className="product-card" style={{ position: 'relative' }}>
                 {product.discount_percentage > 0 && (
-                  <div className=\"discount-badge\">-{product.discount_percentage}%</div>
+                  <div className="discount-badge">-{product.discount_percentage}%</div>
                 )}
-                <img src={product.image_url} alt={product.name} />
-                <div className=\"product-info\">
-                  <div className=\"product-name\">{product.name}</div>
-                  <div className=\"product-price\">{product.price.toFixed(2)}лв.</div>
+                <img src={product.image_url} alt={product.name} onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x300/181818/888?text=Няма+снимка"; }}/>
+                <div className="product-info">
+                  <div className="product-name">{product.name}</div>
+                  <div className="product-price">{product.price.toFixed(2)}лв.</div>
                   <div style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>
                     Наличност: {product.stock} бр.
                   </div>
@@ -286,14 +372,14 @@ const AdminPage = () => {
                         setEditingProduct(product);
                         setShowProductForm(true);
                       }}
-                      className=\"btn btn-secondary\"
+                      className="btn btn-secondary"
                       style={{ flex: 1, padding: '8px' }}
                     >
                       ✏️
                     </button>
                     <button
                       onClick={() => handleDeleteProduct(product.id)}
-                      className=\"btn btn-danger\"
+                      className="btn btn-danger"
                       style={{ flex: 1, padding: '8px' }}
                     >
                       🗑️
@@ -316,7 +402,7 @@ const AdminPage = () => {
                 border: '2px solid #00b2ff'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <div>
                   <h3 style={{ color: '#00b2ff', marginBottom: '5px' }}>
                     Поръчка #{order.id.substring(0, 8)}
@@ -344,11 +430,11 @@ const AdminPage = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value=\"pending\">Изчакваща</option>
-                  <option value=\"confirmed\">Потвърдена</option>
-                  <option value=\"shipped\">Изпратена</option>
-                  <option value=\"delivered\">Доставена</option>
-                  <option value=\"cancelled\">Отказана</option>
+                  <option value="pending">Изчакваща</option>
+                  <option value="confirmed">Потвърдена</option>
+                  <option value="shipped">Изпратена</option>
+                  <option value="delivered">Доставена</option>
+                  <option value="cancelled">Отказана</option>
                 </select>
               </div>
 
@@ -406,6 +492,7 @@ const AdminPage = () => {
         </div>
       )}
 
+      {/* Product Form Modal */}
       {showProductForm && (
         <ProductForm
           product={editingProduct}
@@ -415,10 +502,25 @@ const AdminPage = () => {
           }}
         />
       )}
+      
+      {/* Confirmation Modal for Deletion */}
+      {confirmDelete && (
+        <ConfirmModal
+          message="Сигурни ли сте, че искате да изтриете този продукт? Това действие е необратимо!"
+          onConfirm={confirmDeleteAction}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {/* Message Modal for Alerts */}
+      {messageModal && (
+        <MessageModal
+          message={messageModal}
+          onClose={() => setMessageModal(null)}
+        />
+      )}
     </div>
   );
 };
 
 export default AdminPage;
-"
-Observation: Create successful: /app/frontend/src/pages/AdminPage.js

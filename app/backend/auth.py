@@ -1,4 +1,4 @@
-"from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -64,4 +64,3 @@ async def get_current_admin(current_user: dict = Depends(get_current_user)):
             detail=\"Not enough permissions\"
         )
     return current_user
-"

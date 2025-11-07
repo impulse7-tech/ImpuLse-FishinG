@@ -1,4 +1,4 @@
-"import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const CartContext = createContext(null);
 
@@ -11,11 +11,13 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  // Зарежда състоянието на количката от localStorage при стартиране
   const [cartItems, setCartItems] = useState(() => {
     const saved = localStorage.getItem('cart');
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Запазва количката в localStorage при всяка промяна
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cartItems));
   }, [cartItems]);
@@ -75,4 +77,3 @@ export const CartProvider = ({ children }) => {
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
-"

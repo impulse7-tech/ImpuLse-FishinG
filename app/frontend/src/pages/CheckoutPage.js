@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
@@ -10,6 +10,13 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
+  // Ако няма продукти — връща обратно в количката
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      navigate('/cart');
+    }
+  }, [cartItems, navigate]);
+
   const [formData, setFormData] = useState({
     shipping_name: user?.name || '',
     shipping_phone: user?.phone || '',
@@ -19,29 +26,43 @@ const CheckoutPage = () => {
     notes: ''
   });
 
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const BACKEND_URL =
+    process.env.REACT_APP_BACKEND_URL || 'https://impulse-fishing-api.onrender.com';
   const API = `${BACKEND_URL}/api`;
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [e.target.name]: e.target.value
-    });
+    }));
   };
 
-  const calculateDiscountedPrice = (price, discount) => {
-    return price * (1 - discount / 100);
-  };
+  const calculateDiscountedPrice = (price, discount) =>
+    Math.round(price * (1 - discount / 100) * 100) / 100;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const orderItems = cartItems.map(item => ({
+      if (!cartItems.length) {
+        alert('❌ Количката е празна.');
+        return;
+      }
+
+      if (!isAuthenticated) {
+        alert('🔒 Моля, влезте в профила си, за да направите поръчка.');
+        navigate('/login');
+        return;
+      }
+
+      const orderItems = cartItems.map((item) => ({
         product_id: item.id,
         product_name: item.name,
-        product_price: calculateDiscountedPrice(item.price, item.discount_percentage),
+        product_price: calculateDiscountedPrice(
+          item.price,
+          item.discount_percentage
+        ),
         quantity: item.quantity
       }));
 
@@ -50,15 +71,12 @@ const CheckoutPage = () => {
         ...formData
       };
 
-      let endpoint = `${API}/orders`;
-      let headers = {};
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      if (isAuthenticated && user) {
-        const token = localStorage.getItem('token');
-        headers = { Authorization: `Bearer ${token}` };
-      } else {
-        endpoint = `${API}/orders/guest`;
-      }
+      const endpoint = isAuthenticated
+        ? `${API}/orders`
+        : `${API}/orders/guest`;
 
       await axios.post(endpoint, orderData, { headers });
 
@@ -67,82 +85,60 @@ const CheckoutPage = () => {
       navigate('/');
     } catch (error) {
       console.error('Error creating order:', error);
-      alert('❌ Грешка при поръчката. Моля опитайте отново.');
+      alert('❌ Грешка при поръчката. Моля, опитайте отново.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (cartItems.length === 0) {
-    navigate('/cart');
-    return null;
-  }
-
   return (
-    <div className="container">
-      <h1 style={{ color: '#00b2ff', marginBottom: '30px', fontSize: '36px' }}>
+    <div className="container" style={{ animation: 'fadeIn 0.4s ease-in-out' }}>
+      <h1
+        style={{
+          color: '#00b2ff',
+          marginBottom: '30px',
+          fontSize: '36px',
+          textAlign: 'center'
+        }}
+      >
         📦 Завършване на поръчка
       </h1>
 
       <div className="grid grid-2" style={{ gap: '30px', alignItems: 'start' }}>
-        {/* Checkout Form */}
-        <div style={{
-          padding: '30px',
-          backgroundColor: '#222',
-          borderRadius: '10px',
-          border: '2px solid #00b2ff'
-        }}>
-          <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>Данни за доставка</h2>
+        {/* 📋 Checkout Form */}
+        <div
+          style={{
+            padding: '30px',
+            backgroundColor: '#222',
+            borderRadius: '10px',
+            border: '2px solid #00b2ff'
+          }}
+        >
+          <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>
+            Данни за доставка
+          </h2>
+
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Име и фамилия *</label>
-              <input
-                type="text"
-                name="shipping_name"
-                value={formData.shipping_name}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Телефон *</label>
-              <input
-                type="tel"
-                name="shipping_phone"
-                value={formData.shipping_phone}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Адрес *</label>
-              <input
-                type="text"
-                name="shipping_address"
-                value={formData.shipping_address}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Град *</label>
-              <input
-                type="text"
-                name="shipping_city"
-                value={formData.shipping_city}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Пощенски код</label>
-              <input
-                type="text"
-                name="shipping_postal_code"
-                value={formData.shipping_postal_code}
-                onChange={handleChange}
-              />
-            </div>
+            {[
+              { label: 'Име и фамилия *', name: 'shipping_name', type: 'text', required: true },
+              { label: 'Телефон *', name: 'shipping_phone', type: 'tel', required: true },
+              { label: 'Адрес *', name: 'shipping_address', type: 'text', required: true },
+              { label: 'Град *', name: 'shipping_city', type: 'text', required: true },
+              { label: 'Пощенски код', name: 'shipping_postal_code', type: 'text' }
+            ].map((field) => (
+              <div className="form-group" key={field.name}>
+                <label>{field.label}</label>
+                <input
+                  type={field.type}
+                  name={field.name}
+                  value={formData[field.name]}
+                  onChange={handleChange}
+                  required={field.required}
+                  disabled={loading}
+                />
+              </div>
+            ))}
+
             <div className="form-group">
               <label>Бележки към поръчката</label>
               <textarea
@@ -150,18 +146,27 @@ const CheckoutPage = () => {
                 value={formData.notes}
                 onChange={handleChange}
                 rows="3"
+                disabled={loading}
               />
             </div>
 
-            <div style={{
-              padding: '15px',
-              backgroundColor: '#111',
-              borderRadius: '5px',
-              border: '2px solid #00b2ff',
-              marginBottom: '20px'
-            }}>
+            <div
+              style={{
+                padding: '15px',
+                backgroundColor: '#111',
+                borderRadius: '5px',
+                border: '2px solid #00b2ff',
+                marginBottom: '20px'
+              }}
+            >
               <strong style={{ color: '#00b2ff' }}>Метод на плащане:</strong>
-              <div style={{ color: '#ff9900', marginTop: '5px', fontSize: '18px' }}>
+              <div
+                style={{
+                  color: '#ff9900',
+                  marginTop: '5px',
+                  fontSize: '18px'
+                }}
+              >
                 💵 Наложен платеж (плащане при доставка)
               </div>
             </div>
@@ -172,23 +177,31 @@ const CheckoutPage = () => {
               style={{ width: '100%', padding: '15px', fontSize: '18px' }}
               disabled={loading}
             >
-              {loading ? 'Изпращане...' : '✅ Потвърди поръчката'}
+              {loading ? '⏳ Изпращане...' : '✅ Потвърди поръчката'}
             </button>
           </form>
         </div>
 
-        {/* Order Summary */}
-        <div style={{
-          padding: '30px',
-          backgroundColor: '#222',
-          borderRadius: '10px',
-          border: '2px solid #00b2ff',
-          position: 'sticky',
-          top: '100px'
-        }}>
-          <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>Вашата поръчка</h2>
+        {/* 🧾 Order Summary */}
+        <div
+          style={{
+            padding: '30px',
+            backgroundColor: '#222',
+            borderRadius: '10px',
+            border: '2px solid #00b2ff',
+            position: 'sticky',
+            top: '100px'
+          }}
+        >
+          <h2 style={{ color: '#00b2ff', marginBottom: '20px' }}>
+            Вашата поръчка
+          </h2>
+
           {cartItems.map((item) => {
-            const itemPrice = calculateDiscountedPrice(item.price, item.discount_percentage);
+            const itemPrice = calculateDiscountedPrice(
+              item.price,
+              item.discount_percentage
+            );
             return (
               <div
                 key={item.id}
@@ -213,15 +226,18 @@ const CheckoutPage = () => {
               </div>
             );
           })}
-          <div style={{
-            marginTop: '20px',
-            paddingTop: '20px',
-            borderTop: '2px solid #00b2ff',
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '24px',
-            fontWeight: 'bold'
-          }}>
+
+          <div
+            style={{
+              marginTop: '20px',
+              paddingTop: '20px',
+              borderTop: '2px solid #00b2ff',
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '24px',
+              fontWeight: 'bold'
+            }}
+          >
             <span style={{ color: '#00b2ff' }}>Общо:</span>
             <span style={{ color: '#ff9900' }}>{cartTotal.toFixed(2)}лв.</span>
           </div>

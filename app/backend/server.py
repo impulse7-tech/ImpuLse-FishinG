@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from models import (
+from .models import ( # <--- КОРЕКЦИЯ: Добавих точка (.)
     User, UserCreate, UserLogin, UserInDB, Token,
     Product, ProductCreate,
     Order, OrderCreate, OrderItem,
     ChatMessage, ChatMessageCreate
 )
-from auth import (
+from .auth import ( # <--- КОРЕКЦИЯ: Добавих точка (.)
     get_password_hash, verify_password, create_access_token,
     get_current_user, get_current_admin
 )
@@ -29,7 +29,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
-app = FastAPI(title='ImpuLse FishinG API') # <-- КОРЕКЦИЯТА Е ТУК
+app = FastAPI(title='ImpuLse FishinG API')
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")

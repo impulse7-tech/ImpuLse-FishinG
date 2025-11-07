@@ -1,4 +1,4 @@
-"from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional
 from datetime import datetime, timezone
 import uuid
@@ -99,4 +99,3 @@ class Token(BaseModel):
     access_token: str
     token_type: str = \"bearer\"
     user: User
-"

@@ -520,7 +520,7 @@ body {
 
 /* 2. Стил за минимизирано състояние */
 .chat-container.minimized {
-    width: 150px; 
+    width: 100px; 
     height: 50px;
     cursor: pointer;
     
@@ -570,4 +570,5 @@ body {
 }
 
 /* ... Останалите стилове за chat-messages, chat-input-area и т.н. ... */
+
 

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const ChatWidget = () => {
-  // ... (Останалите useState, useEffect, handle функции остават непроменени) ...
   const [messages, setMessages] = useState([]);
   const [nickname, setNickname] = useState(localStorage.getItem('chatNickname') || '');
   const [nicknameSet, setNicknameSet] = useState(!!localStorage.getItem('chatNickname'));
@@ -13,24 +12,80 @@ const ChatWidget = () => {
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
 
-  // ... (loadMessages, handleSetNickname, handleSendMessage, handleKeyPress остават непроменени) ...
-  // ... (useEffect за Polling и useEffect за скрол остават непроменени) ...
+  // 1. ФУНКЦИИ ЗА РАБОТА С ЧАТА
+  
+  const loadMessages = async () => {
+    try {
+      const response = await axios.get(`${API}/chat/messages`);
+      setMessages(response.data);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  };
 
+  const handleSetNickname = () => {
+    if (nickname.trim()) {
+      localStorage.setItem('chatNickname', nickname);
+      setNicknameSet(true);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !nicknameSet) return;
+
+    try {
+      await axios.post(`${API}/chat/messages`, {
+        nickname,
+        message: newMessage
+      });
+      setNewMessage('');
+      loadMessages();
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      if (nicknameSet) {
+        handleSendMessage();
+      } else {
+        handleSetNickname();
+      }
+    }
+  };
+
+  // 2. useEffects (Polling и Скролиране)
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    loadMessages();
+    const interval = setInterval(loadMessages, 5000); 
+    return () => clearInterval(interval);
+  }, [isOpen]); 
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+
+  // 3. РЕНДИРАНЕ (JSX)
+  
   return (
     <div className={`chat-container ${isOpen ? 'open' : 'closed'}`}> 
       
-      {/* 1. Бутонът/Иконата за отваряне/затваряне */}
+      {/* Иконата за отваряне/затваряне - ВИНАГИ ВИДИМА */}
       <div className="chat-toggle-icon" onClick={() => setIsOpen(!isOpen)}>
         {isOpen ? '❌' : '💬'} 
       </div>
 
-      {/* 2. Съдържанието на чата - рендира се само при отваряне */}
+      {/* Съдържанието на чата - ВИДИМО САМО АКО ЧАТЪТ Е ОТВОРЕН */}
       {isOpen && (
         <div className="chat-content">
           <div className="chat-header">Impulse Chat</div>
 
           {!nicknameSet ? (
-            // ... (Код за въвеждане на прякор) ...
             <div style={{ padding: '20px' }}>
               <label style={{ color: '#00b2ff', marginBottom: '10px', display: 'block' }}>
                 Въведи прякор:
@@ -74,5 +129,6 @@ const ChatWidget = () => {
     </div>
   );
 };
+
 
 export default ChatWidget;

@@ -496,4 +496,66 @@ body {
 .user-menu-dropdown button:hover {
   background-color: #00b2ff;
   color: #000;
+
 }
+
+/* Контейнер, който държи чата във фиксирана позиция */
+.chat-container {
+    position: fixed;
+    bottom: 20px; /* Разстояние отдолу */
+    right: 20px; /* Разстояние отдясно */
+    width: 350px; /* Ширина в отворено състояние */
+    max-height: 80vh; /* Максимална височина */
+    background-color: #1a1a1a;
+    border: 2px solid #00b2ff;
+    border-radius: 10px;
+    z-index: 1000; /* Гарантира, че е над другите елементи */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+/* Стил за минимизирано състояние */
+.chat-container.minimized {
+    width: 150px; /* Минимална ширина за бутона */
+    height: 50px; /* Минимална височина */
+    cursor: pointer;
+}
+
+/* Стил за бутона/заглавието, което превключва чата */
+.chat-toggle-header {
+    background-color: #00b2ff;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+/* Скриваме съдържанието, когато чатът е минимизиран */
+.chat-container.minimized .chat-content {
+    display: none; 
+}
+
+/* Стилове за съдържанието, когато е отворено */
+.chat-content {
+    display: flex;
+    flex-direction: column;
+    height: 450px; /* Задаваме височина на отворения прозорец */
+}
+
+/* Допълнителни стилове за съобщенията */
+.chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #222;
+}
+
+.chat-input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #00b2ff;
+}
+/* ... Добавете или адаптирайте останалите стилове (chat-message, chat-header и т.н.) към новите класове ... */

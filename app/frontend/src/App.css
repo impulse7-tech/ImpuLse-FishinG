@@ -499,77 +499,63 @@ body {
 
 }
 
-/* 1. Контейнер, който държи чата във фиксирана позиция */
+/* 1. Общ контейнер за позициониране */
 .chat-container {
     position: fixed;
-    bottom: 35px; /* Разстояние отдолу */
+    bottom: 35px; /* Височина от дъното */
     right: 20px; /* Разстояние отдясно */
-    width: 350px; /* Ширина в отворено състояние */
-    max-height: 80vh; 
+    z-index: 1000;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 2. Стил за минимизиран (затворен) чат - вижда се само иконата */
+.chat-container.closed {
+    width: 60px; /* Колкото е широка иконата */
+    height: 60px; /* Колкото е висока иконата */
+}
+
+/* 3. Стил за отворен чат - големият прозорец */
+.chat-container.open {
+    width: 350px;
+    height: 500px;
     background-color: #1a1a1a;
     border: 2px solid #00b2ff;
     border-radius: 10px;
-    z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    
-    /* КЛЮЧОВА ПРОМЯНА: Добавяме плавен преход за трансформацията */
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    
-    overflow: hidden;
 }
 
-/* 2. Стил за минимизирано състояние */
-.chat-container.minimized {
-    width: 150px; 
-    height: 50px;
-    cursor: pointer;
-    
-    /* Анимация при минимизиране: свива се и леко се смалява */
-    transform: scale(0.95); 
-}
-
-/* 3. Стил за отворено състояние (добавена анимация) */
-.chat-container.open {
-    /* Анимация при отваряне: възстановява нормалния си размер */
-    transform: scale(1);
-    height: 500px; /* Задаваме височина на отворения прозорец */
-}
-
-/* 4. Стил за бутона/заглавието */
-.chat-toggle-header {
+/* 4. Иконата (бутонът) за отваряне/затваряне */
+.chat-toggle-icon {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background-color: #00b2ff;
     color: white;
-    padding: 15px;
-    text-align: center;
-    font-weight: bold;
+    border-radius: 50%; /* Прави иконата кръгла */
+    font-size: 28px;
     cursor: pointer;
-    border-radius: 8px;
-    /* Гарантираме, че бутонът за превключване е на повърхността */
-    position: relative; 
-    z-index: 1001;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 1001; /* Да е винаги отгоре */
+    transition: all 0.3s ease;
 }
 
-/* 5. Съдържанието на чата, скрито при минимизиране */
-.chat-container.minimized .chat-content {
-    /* Използваме opacity и transform, за да скрием плавно съдържанието, вместо display: none */
-    opacity: 0;
-    pointer-events: none; /* Забранява кликане, когато е скрито */
-    transform: translateY(10px);
-    transition: opacity 0.2s, transform 0.2s;
+/* 5. Скриваме съдържанието, когато чатът е затворен */
+.chat-container.closed .chat-content {
+    display: none;
 }
 
+/* 6. Позициониране на съдържанието на чата в отворен режим */
 .chat-content {
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
-    /* Стилове за плавно появяване при отваряне */
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0);
-    transition: opacity 0.4s 0.1s, transform 0.4s 0.1s; /* Забавяме появяването леко */
+    height: 100%;
+    /* Повдигаме съдържанието нагоре, така че иконата да остане долу */
+    transform: translateY(-60px); 
 }
 
-/* ... Останалите стилове за chat-messages, chat-input-area и т.н. ... */
-
-
-
+/* ... Уверете се, че останалите стилове за .chat-header, .chat-messages, .chat-input-area са приложени към елементите вътре в .chat-content ... */

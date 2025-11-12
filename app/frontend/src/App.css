@@ -499,30 +499,43 @@ body {
 
 }
 
-/* Контейнер, който държи чата във фиксирана позиция */
+/* 1. Контейнер, който държи чата във фиксирана позиция */
 .chat-container {
     position: fixed;
     bottom: 20px; /* Разстояние отдолу */
     right: 20px; /* Разстояние отдясно */
     width: 350px; /* Ширина в отворено състояние */
-    max-height: 80vh; /* Максимална височина */
+    max-height: 80vh; 
     background-color: #1a1a1a;
     border: 2px solid #00b2ff;
     border-radius: 10px;
-    z-index: 1000; /* Гарантира, че е над другите елементи */
+    z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    transition: all 0.3s ease-in-out;
+    
+    /* КЛЮЧОВА ПРОМЯНА: Добавяме плавен преход за трансформацията */
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    
     overflow: hidden;
 }
 
-/* Стил за минимизирано състояние */
+/* 2. Стил за минимизирано състояние */
 .chat-container.minimized {
-    width: 150px; /* Минимална ширина за бутона */
-    height: 50px; /* Минимална височина */
+    width: 150px; 
+    height: 50px;
     cursor: pointer;
+    
+    /* Анимация при минимизиране: свива се и леко се смалява */
+    transform: scale(0.95); 
 }
 
-/* Стил за бутона/заглавието, което превключва чата */
+/* 3. Стил за отворено състояние (добавена анимация) */
+.chat-container.open {
+    /* Анимация при отваряне: възстановява нормалния си размер */
+    transform: scale(1);
+    height: 500px; /* Задаваме височина на отворения прозорец */
+}
+
+/* 4. Стил за бутона/заглавието */
 .chat-toggle-header {
     background-color: #00b2ff;
     color: white;
@@ -531,31 +544,29 @@ body {
     font-weight: bold;
     cursor: pointer;
     border-radius: 8px;
+    /* Гарантираме, че бутонът за превключване е на повърхността */
+    position: relative; 
+    z-index: 1001;
 }
 
-/* Скриваме съдържанието, когато чатът е минимизиран */
+/* 5. Съдържанието на чата, скрито при минимизиране */
 .chat-container.minimized .chat-content {
-    display: none; 
+    /* Използваме opacity и transform, за да скрием плавно съдържанието, вместо display: none */
+    opacity: 0;
+    pointer-events: none; /* Забранява кликане, когато е скрито */
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
 }
 
-/* Стилове за съдържанието, когато е отворено */
 .chat-content {
     display: flex;
     flex-direction: column;
-    height: 450px; /* Задаваме височина на отворения прозорец */
-}
-
-/* Допълнителни стилове за съобщенията */
-.chat-messages {
     flex-grow: 1;
-    overflow-y: auto;
-    padding: 10px;
-    background-color: #222;
+    /* Стилове за плавно появяване при отваряне */
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition: opacity 0.4s 0.1s, transform 0.4s 0.1s; /* Забавяме появяването леко */
 }
 
-.chat-input-area {
-    display: flex;
-    padding: 10px;
-    border-top: 1px solid #00b2ff;
-}
-/* ... Добавете или адаптирайте останалите стилове (chat-message, chat-header и т.н.) към новите класове ... */
+/* ... Останалите стилове за chat-messages, chat-input-area и т.н. ... */
